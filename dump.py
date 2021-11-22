@@ -16,8 +16,8 @@ EVAL_REGEX = re.compile("{ \[%eval .+?\] }")
 CLOCK_REGEX = re.compile("{ \[%clk .+?\] }")
 
 QUERY = """INSERT INTO lichess
-           (date, result, white_elo, black_elo, movetext)
-           VALUES (?, ?, ?, ?, ?)"""
+           (date, result, white, white_elo, black, black_elo, movetext)
+           VALUES (?, ?, ?, ?, ?, ?, ?)"""
 
 
 def parse(handle: io.TextIOWrapper) -> Iterator[Dict]:
@@ -86,6 +86,26 @@ def parse(handle: io.TextIOWrapper) -> Iterator[Dict]:
             else:
                 game
                 break
+        elif 'White' in line:
+            header = HEADER_REGEX.match(line)
+            if header:
+                try:
+                    game['white'] = int(header.group(2))
+                except ValueError:
+                    game['white'] = None
+                continue
+            else:
+                break
+        elif 'Black' in line:
+            header = HEADER_REGEX.match(line)
+            if header:
+                try:
+                    game['black'] = int(header.group(2))
+                except ValueError:
+                    game['black'] = None
+                continue
+            else:
+                break
         elif 'Result' in line:
             header = HEADER_REGEX.match(line)
             if header:
@@ -102,6 +122,6 @@ if __name__ == "__main__":
         games = parse(handle)
         cur = conn.cursor()
         for game in games:
-            cur.execute(QUERY, (game['date'], game['result'], game['white_elo'], game['black_elo'], game['movetext']))
+            cur.execute(QUERY, (game['date'], game['result'], game['white'], game['white_elo'], game['black'], game['black_elo'], game['movetext']))
         conn.commit()
 
