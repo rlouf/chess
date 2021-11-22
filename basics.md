@@ -64,6 +64,8 @@ np.std(elo_diff)
 
 We can look at the game outcome and condition on the ELO rating, difference of ELO etc.
 
+There is a lot of discussion around whether black has an advantage and we shall answer this with statistics. Look at this [wikipedia article](https://en.wikipedia.org/wiki/First-move_advantage_in_chess) for pointers.
+
 ```python
 cur.execute("SELECT result FROM lichess where white_elo > 500 and black_elo > 500")
 results = cur.fetchall()
