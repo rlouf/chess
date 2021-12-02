@@ -69,11 +69,18 @@ results = cur.fetchall()
 
 #+begin_src python :session basics
 counter = collections.Counter(results)
-ratios = [counter['1-0'] /  sum(counter.values()), counter['0-1'] /  sum(counter.values()), counter['1/2-1/2'] /  sum(counter.values())]
+num_games = sum(counter.values())
+
+ratios = {
+    'White wins': counter['1-0'] /  num_games,
+    'Black wins': counter['0-1'] /  num_games,
+    'Draws': counter['1/2-1/2'] / num_games
+}
 ratios
 #+end_src
 
 #+RESULTS:
+| White wins | : | 0.5005424416433711 | Black wins | : | 0.45746752919092937 | Draws | : | 0.04199002916569952 |
 
 * First-mover advantage
 
