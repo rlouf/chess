@@ -1,0 +1,177 @@
+#+TITLE: Chess
+#+AUTHOR: Rémi Louf
+
+#+begin_src elisp :results silent :exports none
+(plist-put org-format-latex-options :scale .8)
+#+end_src
+
+* Basics
+
+#+begin_src python :session basics :exports none
+import collections
+import matplotlib.pyplot as plt
+import sqlite3
+
+conn = sqlite3.connect('/archive/chess/lichess.db')
+#+end_src
+
+#+RESULTS:
+
+** ELO ratings
+
+Let us look at the distribution of ELO rating for white and black:
+
+#+begin_src python :session basics :async true
+cur = conn.cursor()
+cur.row_factory = lambda cursor, row: row[0]
+
+cur.execute("SELECT white_elo FROM lichess where white_elo is not null")
+white_elos = cur.fetchall()
+
+cur.execute("SELECT black_elo FROM lichess where black_elo is not null")
+black_elos = cur.fetchall()
+
+cur.execute("SELECT white_elo-black_elo FROM lichess where white_elo is not null and black_elo is not null")
+elo_diff = cur.fetchall()
+#+end_src
+
+#+begin_src python :session basics :results file :exports results :var filename=(org-babel-temp-file "figure" ".svg")
+fig, axes = plt.subplots(nrows=2)
+axes[0].hist(black_elos, bins=20, color='black', edgecolor='white')
+axes[1].hist(white_elos, bins=20, color='white', edgecolor='black')
+axes[1].set_xlabel('ELO score')
+plt.suptitle("Distribution of ELO score in the database")
+plt.tight_layout()
+plt.savefig(filename)
+filename
+#+end_src
+
+#+RESULTS:
+[[file:/tmp/babel-6TNZFG/figure97b69s.svg]]
+
+#+begin_src python :session basics :results file :exports results :var filename=(org-babel-temp-file "figure" ".svg")
+fig, ax = plt.subplots()
+ax.hist(elo_diff, bins=20)
+ax.set_xlabel(r"$(ELO)_W - (ELO)_B$")
+plt.savefig(filename)
+filename
+#+end_src
+
+#+RESULTS:
+[[file:/tmp/babel-6TNZFG/figureZOwRag.svg]]
+
+** TODO White win, Black win, draw
+
+#+begin_src python :session basics :results silent
+cur.execute("SELECT result FROM lichess where white_elo > 500 and black_elo > 500")
+results = cur.fetchall()
+#+end_src
+
+#+begin_src python :session basics
+counter = collections.Counter(results)
+ratios = [counter['1-0'] /  sum(counter.values()), counter['0-1'] /  sum(counter.values()), counter['1/2-1/2'] /  sum(counter.values())]
+ratios
+#+end_src
+
+#+RESULTS:
+
+* First-mover advantage
+
+Whether white has an advantage over black is still a controversy in chess! But the first difficulty is to define what we mean by /has an advantage/.
+
+** Quotes
+
+
+#+begin_quote
+The first-mover advantage is founded more in psychology than in reality. ---Andras Adorjan
+#+end_quote
+
+#+begin_quote
+When I am White I win because I am White. When I am Black I win because I am Bogoljubov. ---Efim Bogoljubov
+#+end_quote
+** References
+- The [[https://en.wikipedia.org/wiki/First-move_advantage_in_chess][wikipedia page]]
+- A [[https://chess.stackexchange.com/questions/2017/does-white-have-an-advantage][Chess StackExchange question]] on the topic
+- [[https://chess.stackexchange.com/questions/2508/white-have-an-advantage-with-the-first-move?noredirect=1&lq=1][Another]] Chess StackExchange question
+- [[https://chess.stackexchange.com/questions/1494/does-the-first-move-advantage-for-white-have-real-meaning-apart-from-the-highest?rq=1][Yet another]] Chess StackExchange question
+- [[http://www.chessmetrics.com/KaggleComp/1-TimSalimans.pdf][Report]] of the winning entry to a Kaggle competition on predicting the result of chess games
+
+** White wins necessarily if she plays perfectly
+
+I think that what we /think we're saying/ when we talk about White having and advantage over Black is that in case of perfect play, White will always win. If white played perfectly then it would necessarily win, and one can only rely on White making a mistake to win.
+
+Chess is however not a solved game, so it impossible for us to know whether white is bound to win with perfect play. Connect Four, solved in 1988, guarantees the first player to win should she play perfectly. Checkers, solved in 2007, guarantees a draw with perfect play from both sides. It is unlikely that Chess will be solved any time soon, so we'll have to use other tricks.
+
+** Real games as proxies for game exploration
+
+Although there are $10^{120}$ possible games, it doesn't sound crazy to assume that all games played by humans explore a sensible part of the space of games
+
+**** TODO Statistics wins whites vs blacks
+**** TODO Statistics of wins but for increases ELO values
+
+That there is a higher chance of winning with white /does not/ mean that there
+is first mover advantage, i.e. that the win can solely be explained by being the
+first to move.
+
+An explanation is that White is likeluy pushing the game down a line of play for
+which it has spent more time preparing. If that's the case the ratio should
+decrease as the ELO increases.
+
+There is a clear and measurable first-mover advantage for white. But one can
+wonder if it is structured into the game or merely psychological. To (partially)
+answer this question we consider games from more and more experienced players,
+by increasing ELO score.
+
+**** TODO Statistics per player
+
+Bogoljubov famously said that he won with Black despite the odds. Are there players that are exceptionally better than others with the black pieces?
+Could answer whether there is a psychological aspect to it
+
+** Machine vs Machine
+
+What is closest to perfect play is the machines that we have built to play chess.
+- Look at AlphaZero against Stockfish!
+- Can we look at AlphaZero playing against itself?
+
+** As a byproduct of rating system
+
+An indirect way to test for black-white advantage is to fit a model to predict victory and add a "white advantage" term:
+
+#+attr_latex: :options basicstyle=\tiny\ttfamily
+#+begin_src latex :results raw :exports results
+\begin{align*}
+  d &= S_{A} - S_{B} + \gamma + \epsilon\\
+  \epsilon &\sim \operatorname{Normal}(0, \sigma^{2})
+\end{align*}
+#+end_src
+
+#+RESULTS:
+\begin{align*}
+  d &= S_{A} - S_{B} + \gamma + \epsilon\\
+  \epsilon &\sim \operatorname{Normal}(0, \sigma^{2})
+\end{align*}
+
+if $d>1$ A wins, if $d<-1$ B wins and we have a draw otherwise. We write:
+
+#+begin_src latex :results raw :exports results
+\begin{equation}
+  S_{i} \sim \operatorname{Normal}(\mu_{i}, 1)
+\end{equation}
+#+end_src
+
+#+RESULTS:
+\begin{equation}
+  S_{i} \sim \operatorname{Normal}(\mu_{i}, 1)
+\end{equation}
+
+where the $\mu_i$ share the same hyperprior. In a second time we can use a random walk to compute ratings that evolve over time.
+
+Apparently this stuff has been known for a while. In Glickman's paper about chess rating systems we find many interesting things. The winner of a Kaggle competition showed that playing Black was equivalent to a 25-40 ELO disadvantage.
+
+** Time to win
+
+#+begin_quote
+You will win with either color if you are the better player but it will take longer with Black. ---Isaac Kashdan
+#+end_quote
+
+For every white/black victory we can look at the number of ply before a Black win, a White win or a draw. Related to Kashdan's quote
